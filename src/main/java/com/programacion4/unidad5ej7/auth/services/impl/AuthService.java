@@ -1,8 +1,10 @@
 package com.programacion4.unidad5ej7.auth.services.impl;
 
 import com.programacion4.unidad5ej7.auth.dtos.request.LoginRequestDto;
+import com.programacion4.unidad5ej7.auth.dtos.request.RefreshRequestDto;
 import com.programacion4.unidad5ej7.auth.dtos.request.RegisterRequestDto;
 import com.programacion4.unidad5ej7.auth.dtos.response.AuthResponseDto;
+import com.programacion4.unidad5ej7.auth.dtos.response.RefreshResponseDto;
 import com.programacion4.unidad5ej7.auth.jwt.JwtProperties;
 import com.programacion4.unidad5ej7.auth.jwt.JwtService;
 import com.programacion4.unidad5ej7.auth.models.UserEntity;
@@ -11,6 +13,7 @@ import com.programacion4.unidad5ej7.auth.repository.UserRepository;
 import com.programacion4.unidad5ej7.config.exceptions.InvalidCredentialsException;
 import com.programacion4.unidad5ej7.config.exceptions.UserAlreadyExistsException;
 
+import io.jsonwebtoken.Claims;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -23,6 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.AllArgsConstructor;
 import com.programacion4.unidad5ej7.auth.services.interfaces.IAuthService;
+
+import java.util.List;
 
 @Service
 @AllArgsConstructor
@@ -46,6 +51,7 @@ public class AuthService implements IAuthService {
 		if (userRepository.existsByUsername(request.username())) {
 			throw new UserAlreadyExistsException();
 		}
+
 		UserEntity user = UserEntity.builder()
 				.username(request.username())
 				.password(passwordEncoder.encode(request.password()))
@@ -58,6 +64,7 @@ public class AuthService implements IAuthService {
 	 * Login: el {@link AuthenticationManager} valida credenciales; si son correctas se emite un JWT con los
 	 * mismos nombres de rol que {@link UserDetails#getAuthorities()}.
 	 */
+
 	@Override
 	public AuthResponseDto login(LoginRequestDto request) {
 		try {
@@ -75,13 +82,34 @@ public class AuthService implements IAuthService {
 
 			// Generar el token JWT
 			String accessToken = jwtService.generateToken(principal.getUsername(), roles);
+			String refreshToken = jwtService.generateAccessToken(principal.getUsername());
 
 			// Devolver el token JWT
-			return new AuthResponseDto(accessToken, TOKEN_TYPE_BEARER, jwtProperties.expirationMs());
+			return new AuthResponseDto(accessToken, refreshToken, TOKEN_TYPE_BEARER, jwtProperties.expirationMs());
 
 			// Si las credenciales son inválidas, se lanza una excepción de tipo InvalidCredentialsException
 		} catch (BadCredentialsException e) {
 			throw new InvalidCredentialsException();
 		}
+	}
+
+	public RefreshResponseDto refresh(RefreshRequestDto request) {
+		Claims claims = jwtService.parseValidClaims(request.refreshToken())	// obtiene token del cliente y lo parsea para ver validez
+				.orElseThrow(InvalidCredentialsException::new);	// void en caso de error (401)
+
+		String username = claims.getSubject();
+
+		UserEntity user = userRepository.findByUsername(username)	// validación contra DB (usuario eliminado)
+				.orElseThrow(InvalidCredentialsException::new);
+
+		var roles = List.of(user.getRole().name());	// rol
+
+		String newAccessToken = jwtService.generateToken(username, roles);	// nuevo token
+
+		return new RefreshResponseDto(
+				newAccessToken,
+				"Bearer",
+				jwtProperties.expirationMs()
+		);
 	}
 }

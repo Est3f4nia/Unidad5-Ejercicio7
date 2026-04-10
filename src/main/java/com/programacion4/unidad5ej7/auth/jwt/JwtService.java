@@ -15,33 +15,35 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import io.jsonwebtoken.security.Keys;
 
-/**
- * Firma y valida JWT con HMAC-SHA256: el subject identifica al usuario; el claim de roles usa el nombre
- * definido en {@link JwtClaimNames#ROLES}. La caducidad viene de {@code app.jwt.expiration-ms} (claim {@code exp}).
+/*
+	Generación, validación y lectura de tokens
  */
+
 @Service
 @RequiredArgsConstructor
 public class JwtService {
-
 	private static final int MIN_SECRET_BYTES = 32;
-
 	private final JwtProperties properties;
-	
 	private SecretKey signingKey;
 
 	@PostConstruct
-	void initSigningKey() {
+	void initSigningKey() {	// ejecución única, al levantar app
+		// comprobación de algoritmo
 		if (!"HS256".equalsIgnoreCase(properties.algorithm())) {
 			throw new IllegalStateException("Solo está soportado el algoritmo HS256 (app.jwt.algorithm)");
 		}
-		byte[] keyBytes = properties.secret().getBytes(StandardCharsets.UTF_8);
+
+		// generación de firma a partir de secret
+		byte[] keyBytes = properties.secret().getBytes(StandardCharsets.UTF_8);	// secret como plaintext (debe venir de entorno seguro o tener entropía (aleatoriedad) alta)
 		if (keyBytes.length < MIN_SECRET_BYTES) {
 			throw new IllegalStateException(
 					"app.jwt.secret debe tener al menos " + MIN_SECRET_BYTES + " bytes en UTF-8 para HS256");
 		}
-		signingKey = Keys.hmacShaKeyFor(keyBytes);
+
+		signingKey = Keys.hmacShaKeyFor(keyBytes);	// convierte el secret en clave válida
 	}
 
+	// generación de tokens de acceso
 	public String generateToken(String username, Collection<String> roles) {
 		Instant now = Instant.now();
 		Instant expiry = now.plusMillis(properties.expirationMs());
@@ -54,16 +56,30 @@ public class JwtService {
 				.compact();
 	}
 
-	/**
-	 * Parsea y verifica firma y fechas. Ante cualquier {@link JwtException} devuelve vacío (sin relanzar ni loguear detalles).
-	 */
+	public String generateAccessToken (String username) {
+		Instant now = Instant.now();
+		Instant expiry = now.plusMillis(properties.refreshExpirationMs());
+		return Jwts.builder()
+				.subject(username)
+				.issuedAt(Date.from(now))
+				.expiration(Date.from(expiry))
+				.signWith(signingKey, Jwts.SIG.HS256)
+				.compact();
+	}
+
+	// validación de firma, expiración y estructura del token
 	public Optional<Claims> parseValidClaims(String token) {
 		if (token == null || token.isBlank()) {
 			return Optional.empty();
 		}
+
 		try {
 			return Optional.of(
-					Jwts.parser().verifyWith(signingKey).build().parseSignedClaims(token).getPayload());
+					Jwts.parser()
+							.verifyWith(signingKey)	// verifica firma
+							.build()
+							.parseSignedClaims(token)
+							.getPayload());
 		} catch (JwtException ignored) {
 			return Optional.empty();
 		}

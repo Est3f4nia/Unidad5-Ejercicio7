@@ -1,9 +1,12 @@
 package com.programacion4.unidad5ej7.auth.jwt;
 
-public final class JwtClaimNames {
+/*
+	Centralización de contrato JWT: consistencia en todo el sistema
+ */
 
+public final class JwtClaimNames {
 	public static final String ROLES = "roles";
 
-	private JwtClaimNames() {
-	}
+	// Evita instanciación (new JwtClaimNames())
+	private JwtClaimNames() {}
 }
