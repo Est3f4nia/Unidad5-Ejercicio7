@@ -56,7 +56,7 @@ public class JwtService {
 				.compact();
 	}
 
-	public String generateAccessToken (String username) {
+	public String generateRefreshToken(String username) {
 		Instant now = Instant.now();
 		Instant expiry = now.plusMillis(properties.refreshExpirationMs());
 		return Jwts.builder()

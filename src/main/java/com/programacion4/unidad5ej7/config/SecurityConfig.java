@@ -20,29 +20,27 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+    // necesario para login
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
         return configuration.getAuthenticationManager();
     }
 
-    /**
-     * Sin sesión en servidor ({@link SessionCreationPolicy#STATELESS}): la autenticación va en cada petición vía JWT.
-     * El {@link JwtAuthenticationFilter} se ejecuta antes de {@link UsernamePasswordAuthenticationFilter} para
-     * rellenar el {@code SecurityContext} cuando hay cabecera {@code Authorization: Bearer ...} válida.
-     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter)
             throws Exception {
         http
-                .csrf(csrf -> csrf.disable())
-                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .csrf(csrf -> csrf.disable())   // no CSRF
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // sesiones stateless
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers("/auth/**").permitAll()    // /auth de acceso público
                         .requestMatchers("/insumos/**").permitAll()
                         .requestMatchers("/h2-console", "/h2-console/**").permitAll()
                         .anyRequest().authenticated())
+                // filtro
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
+        // fix h2 console
         http.headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
 
         return http.build();

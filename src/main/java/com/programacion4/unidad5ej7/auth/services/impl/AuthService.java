@@ -82,7 +82,7 @@ public class AuthService implements IAuthService {
 
 			// Generar el token JWT
 			String accessToken = jwtService.generateToken(principal.getUsername(), roles);
-			String refreshToken = jwtService.generateAccessToken(principal.getUsername());
+			String refreshToken = jwtService.generateRefreshToken(principal.getUsername());
 
 			// Devolver el token JWT
 			return new AuthResponseDto(accessToken, refreshToken, TOKEN_TYPE_BEARER, jwtProperties.expirationMs());

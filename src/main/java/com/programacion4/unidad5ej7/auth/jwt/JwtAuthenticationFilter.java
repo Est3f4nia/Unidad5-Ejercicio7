@@ -67,7 +67,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {	// ejecució
 				UsernamePasswordAuthenticationToken authentication =
 						new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());	// crea un usuario autenticado con permisos custom
 				authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-				SecurityContextHolder.getContext().setAuthentication(authentication);	// define contexto global (autenticado o no)
+				SecurityContextHolder.getContext().setAuthentication(authentication);	// !! define contexto global (autenticado o no)
 			} catch (UsernameNotFoundException ignored) {
 				// Token válido pero usuario ya no existe: no rellenar el contexto.
 			}
